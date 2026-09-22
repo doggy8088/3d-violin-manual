@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   BOW_TECHNIQUES,
   CARE_TIPS,
@@ -51,6 +51,183 @@ function SpeakerIcon({ muted }: { muted: boolean }) {
           />
         </>
       )}
+    </svg>
+  );
+}
+
+/** 方向鍵微調的位移；按住 Shift 走大步。 */
+const DRAG_KEY_STEP = 24;
+const DRAG_KEY_STEP_LARGE = 96;
+/** 面板與可移動區域邊緣至少保留的距離，避免被拖到看不見。 */
+const PANEL_EDGE_GAP = 8;
+/** 指標位移未達這個距離就當成「點一下」，而不是拖曳。 */
+const DRAG_SLOP = 4;
+
+type PanelOffset = { x: number; y: number };
+type PanelBounds = { minX: number; maxX: number; minY: number; maxY: number };
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * 讓說明面板可以搬家：拖曳、方向鍵微調、Home 或點一下歸位。
+ *
+ * 位移只以 transform 呈現，不動到版面，因此每一章的面板排版都維持原樣；而且直接
+ * 寫入 DOM 樣式而非透過 state，拖曳過程不會連帶重新渲染整個 Overlay。
+ * 可移動的範圍以面板的容器為界，所以面板蓋不到頁首與頁尾，也不會被拖出畫面。
+ */
+function usePanelDrag(
+  panelRef: RefObject<HTMLDivElement | null>,
+  areaRef: RefObject<HTMLElement | null>,
+  reclampKey: string,
+) {
+  const offset = useRef<PanelOffset>({ x: 0, y: 0 });
+  const drag = useRef<{
+    id: number;
+    startX: number;
+    startY: number;
+    baseX: number;
+    baseY: number;
+    bounds: PanelBounds;
+  } | null>(null);
+  const moved = useRef(false);
+  const [dragging, setDragging] = useState(false);
+
+  /** 依面版目前的版面位置，算出位移的合法區間；rect 已含舊位移，要先扣掉。 */
+  const boundsFor = useCallback(
+    (current: PanelOffset): PanelBounds | null => {
+      const area = areaRef.current?.getBoundingClientRect();
+      const rect = panelRef.current?.getBoundingClientRect();
+      if (!area || !rect) return null;
+      const layoutLeft = rect.left - current.x;
+      const layoutTop = rect.top - current.y;
+      const minLeft = area.left + PANEL_EDGE_GAP;
+      const minTop = area.top + PANEL_EDGE_GAP;
+      return {
+        minX: minLeft - layoutLeft,
+        maxX: Math.max(minLeft, area.right - PANEL_EDGE_GAP - rect.width) - layoutLeft,
+        minY: minTop - layoutTop,
+        maxY: Math.max(minTop, area.bottom - PANEL_EDGE_GAP - rect.height) - layoutTop,
+      };
+    },
+    [areaRef, panelRef],
+  );
+
+  const apply = useCallback(
+    (next: PanelOffset) => {
+      offset.current = next;
+      const el = panelRef.current;
+      if (el) el.style.transform = `translate3d(${next.x}px, ${next.y}px, 0)`;
+    },
+    [panelRef],
+  );
+
+  const reset = useCallback(() => apply({ x: 0, y: 0 }), [apply]);
+
+  const nudge = useCallback(
+    (dx: number, dy: number) => {
+      const bounds = boundsFor(offset.current);
+      if (!bounds) return;
+      apply({
+        x: clampNumber(offset.current.x + dx, bounds.minX, bounds.maxX),
+        y: clampNumber(offset.current.y + dy, bounds.minY, bounds.maxY),
+      });
+    },
+    [apply, boundsFor],
+  );
+
+  // 視窗尺寸或章節改變後版面會變，原本的位移可能把面板擠出可視範圍，要重新夾一次。
+  useEffect(() => {
+    const reclamp = () => {
+      if (offset.current.x === 0 && offset.current.y === 0) return;
+      const bounds = boundsFor(offset.current);
+      if (!bounds) return;
+      apply({
+        x: clampNumber(offset.current.x, bounds.minX, bounds.maxX),
+        y: clampNumber(offset.current.y, bounds.minY, bounds.maxY),
+      });
+    };
+    reclamp();
+    window.addEventListener("resize", reclamp);
+    return () => window.removeEventListener("resize", reclamp);
+  }, [apply, boundsFor, reclampKey]);
+
+  const endDrag = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    const state = drag.current;
+    if (!state || state.id !== event.pointerId) return;
+    drag.current = null;
+    setDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, []);
+
+  return {
+    dragging,
+    handleProps: {
+      onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
+        if (event.button !== 0 || drag.current) return;
+        const bounds = boundsFor(offset.current);
+        if (!bounds) return;
+        // 取得指標捕獲，滑出把手後拖曳才會繼續，放手也一定收得到事件。
+        event.currentTarget.setPointerCapture(event.pointerId);
+        moved.current = false;
+        drag.current = {
+          id: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          baseX: offset.current.x,
+          baseY: offset.current.y,
+          bounds,
+        };
+        setDragging(true);
+      },
+      onPointerMove: (event: React.PointerEvent<HTMLButtonElement>) => {
+        const state = drag.current;
+        if (!state || state.id !== event.pointerId) return;
+        const dx = event.clientX - state.startX;
+        const dy = event.clientY - state.startY;
+        if (!moved.current && Math.hypot(dx, dy) < DRAG_SLOP) return;
+        moved.current = true;
+        apply({
+          x: clampNumber(state.baseX + dx, state.bounds.minX, state.bounds.maxX),
+          y: clampNumber(state.baseY + dy, state.bounds.minY, state.bounds.maxY),
+        });
+      },
+      onPointerUp: endDrag,
+      onPointerCancel: endDrag,
+      onClick: () => {
+        // 拖曳過就不要歸位，否則每次放手面板都會彈回原處。
+        if (moved.current) return;
+        reset();
+      },
+      onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => {
+        const step = event.shiftKey ? DRAG_KEY_STEP_LARGE : DRAG_KEY_STEP;
+        if (event.key === "ArrowLeft") nudge(-step, 0);
+        else if (event.key === "ArrowRight") nudge(step, 0);
+        else if (event.key === "ArrowUp") nudge(0, -step);
+        else if (event.key === "ArrowDown") nudge(0, step);
+        else if (event.key === "Home") reset();
+        else return;
+        // 把手自己用掉方向鍵，不能讓它同時觸發上層的翻章快捷鍵。
+        event.preventDefault();
+        event.stopPropagation();
+      },
+    },
+  };
+}
+
+/** 六點的拖曳把手圖示。 */
+function GripIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden className="shrink-0">
+      {[3, 6, 9].map((cy) => (
+        <g key={cy}>
+          <circle cx="4" cy={cy} r="1.05" fill="currentColor" />
+          <circle cx="8" cy={cy} r="1.05" fill="currentColor" />
+        </g>
+      ))}
     </svg>
   );
 }
@@ -518,6 +695,9 @@ export function Overlay({
   const idx = CHAPTERS.findIndex((c) => c.id === chapter);
   const isDesktop = useIsDesktop();
   const asideHidden = !menuOpen && !isDesktop;
+  const panelRef = useRef<HTMLDivElement>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
+  const drag = usePanelDrag(panelRef, areaRef, chapter);
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
@@ -636,35 +816,55 @@ export function Overlay({
           ))}
         </aside>
 
-        <div className="flex min-w-0 flex-1 items-stretch justify-between gap-4 px-4 pb-24 pt-2 sm:px-6">
+        <div
+          ref={areaRef}
+          className="flex min-w-0 flex-1 items-stretch justify-between gap-4 px-4 pb-24 pt-2 sm:px-6"
+        >
           <main
             id="manual-content"
             tabIndex={-1}
             className="pointer-events-auto min-w-0 max-w-full"
           >
-            {chapter === "cover" && <CoverPanel onStart={() => onChapter("history")} />}
-            {chapter === "history" && <HistoryPanel />}
-            {chapter === "anatomy" && (
-              <AnatomyPanel
-                selectedPart={selectedPart}
-                onSelect={onSelectPart}
-                exploded={exploded}
-                onToggleExplode={onToggleExplode}
-                showHotspots={showHotspots}
-                onToggleHotspots={onToggleHotspots}
-              />
-            )}
-            {chapter === "strings" && (
-              <StringsPanel highlightString={highlightString} onPlay={onPlayString} />
-            )}
-            {chapter === "posture" && <PosturePanel />}
-            {chapter === "bowing" && (
-              <BowingPanel technique={bowTechnique} onTechnique={onBowTechnique} />
-            )}
-            {chapter === "leftHand" && <LeftHandPanel />}
-            {chapter === "care" && <CarePanel />}
-            {chapter === "repertoire" && <RepertoirePanel />}
-            {chapter === "quiz" && <QuizPanel />}
+            <div ref={panelRef} className="relative">
+              <div className="mb-2 flex justify-end">
+                <button
+                  type="button"
+                  {...drag.handleProps}
+                  aria-label="移動說明面板：拖曳或按方向鍵移動，按一下歸位"
+                  title="拖曳可移動面板；方向鍵微調，按住 Shift 加速，Home 或按一下歸位"
+                  className={cn(
+                    "glass-dark flex touch-none items-center gap-1.5 rounded-full px-3 py-1 text-[10.5px] tracking-wide text-[#e8d5a3]/80 transition select-none hover:text-[#f0e0a8]",
+                    drag.dragging ? "cursor-grabbing text-[#f0e0a8]" : "cursor-grab",
+                  )}
+                >
+                  <GripIcon />
+                  拖曳移動
+                </button>
+              </div>
+              {chapter === "cover" && <CoverPanel onStart={() => onChapter("history")} />}
+              {chapter === "history" && <HistoryPanel />}
+              {chapter === "anatomy" && (
+                <AnatomyPanel
+                  selectedPart={selectedPart}
+                  onSelect={onSelectPart}
+                  exploded={exploded}
+                  onToggleExplode={onToggleExplode}
+                  showHotspots={showHotspots}
+                  onToggleHotspots={onToggleHotspots}
+                />
+              )}
+              {chapter === "strings" && (
+                <StringsPanel highlightString={highlightString} onPlay={onPlayString} />
+              )}
+              {chapter === "posture" && <PosturePanel />}
+              {chapter === "bowing" && (
+                <BowingPanel technique={bowTechnique} onTechnique={onBowTechnique} />
+              )}
+              {chapter === "leftHand" && <LeftHandPanel />}
+              {chapter === "care" && <CarePanel />}
+              {chapter === "repertoire" && <RepertoirePanel />}
+              {chapter === "quiz" && <QuizPanel />}
+            </div>
           </main>
         </div>
       </div>
@@ -745,6 +945,7 @@ export function Overlay({
             </h2>
             <ul className="mt-4 space-y-2 text-sm leading-7 text-[#4a3224]">
               <li>拖曳畫面以旋轉小提琴，滾輪或捏合可縮放。</li>
+              <li>說明面板右上角的「拖曳移動」把手可以拉著跑，躲開想看的部分；方向鍵微調（Shift 加速），Home 或按一下把手歸位。</li>
               <li>在「解剖」章節點選部位，相機會靠過去。按 E 可分解。</li>
               <li>「四弦」章節可聽空弦；請先與頁面互動以開啟音訊，右上角可切換「有聲／已靜音」。</li>
               <li>「運弓」章節選擇技法，弓會示範動作。</li>
