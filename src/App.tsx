@@ -23,7 +23,10 @@ function detectWebGL() {
   try {
     const canvas = document.createElement("canvas");
     const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
-    return gl !== null;
+    if (!gl) return false;
+    // 立刻釋放偵測用的 GPU 資源，不讓它多佔一個 WebGL context。
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+    return true;
   } catch {
     return false;
   }
@@ -35,7 +38,7 @@ export default function App() {
   const [chapter, setChapter] = useState<ChapterId>("cover");
   const [selectedPart, setSelectedPart] = useState<string | null>(null);
   const [exploded, setExploded] = useState(false);
-  const [autoRotate, setAutoRotate] = useState(() => !prefersReducedMotion());
+  const [autoRotate, setAutoRotate] = useState(() => !reducedMotion);
   const [showHotspots, setShowHotspots] = useState(true);
   const [bowTechnique, setBowTechnique] = useState<string | null>(null);
   const [muted, setMutedState] = useState(false);
