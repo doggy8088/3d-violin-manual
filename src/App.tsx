@@ -15,8 +15,23 @@ function prefersReducedMotion() {
   );
 }
 
+/**
+ * Canvas 需要 WebGL。先偵測再決定要不要掛載 3D 場景，否則 WebGLRenderer 會拋出
+ * 未處理的 rejection，使用者只會看到一塊空白區域，卻不知道發生什麼事。
+ */
+function detectWebGL() {
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+    return gl !== null;
+  } catch {
+    return false;
+  }
+}
+
 export default function App() {
   const [reducedMotion] = useState(prefersReducedMotion);
+  const [webglAvailable] = useState(detectWebGL);
   const [chapter, setChapter] = useState<ChapterId>("cover");
   const [selectedPart, setSelectedPart] = useState<string | null>(null);
   const [exploded, setExploded] = useState(false);
@@ -119,23 +134,40 @@ export default function App() {
 
       <div
         role="region"
-        aria-label="小提琴 3D 模型（滑鼠或觸控拖曳可旋轉、滾輪或捏合可縮放；鍵盤請改用上方與下方的章節按鈕）"
+        aria-label={
+          webglAvailable
+            ? "小提琴 3D 模型（滑鼠或觸控拖曳可旋轉、滾輪或捏合可縮放；鍵盤請改用上方與下方的章節按鈕）"
+            : "小提琴 3D 模型無法顯示"
+        }
         className="absolute inset-0 touch-none"
       >
-        <Scene
-          chapter={chapter}
-          selectedPart={selectedPart}
-          onSelectPart={handleSelectPart}
-          exploded={exploded}
-          showHotspots={chapter === "anatomy" && showHotspots}
-          highlightString={highlightString}
-          onPlayString={handlePlayString}
-          showFingers={chapter === "leftHand"}
-          playingString={playingString}
-          bowTechnique={bowTechnique}
-          autoRotate={autoRotate}
-          onUserInteract={() => setAutoRotate(false)}
-        />
+        {webglAvailable ? (
+          <Scene
+            chapter={chapter}
+            selectedPart={selectedPart}
+            onSelectPart={handleSelectPart}
+            exploded={exploded}
+            showHotspots={chapter === "anatomy" && showHotspots}
+            highlightString={highlightString}
+            onPlayString={handlePlayString}
+            showFingers={chapter === "leftHand"}
+            playingString={playingString}
+            bowTechnique={bowTechnique}
+            autoRotate={autoRotate}
+            onUserInteract={() => setAutoRotate(false)}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center px-6 py-16">
+            <p
+              role="status"
+              className="glass-dark max-w-md rounded-2xl px-5 py-4 text-center text-xs leading-6 text-[#e8d5a3]/85"
+            >
+              這個瀏覽器無法建立 WebGL 內容，因此 3D
+              小提琴無法顯示。手冊的文字、章節切換與小測驗仍可正常使用；若要看到 3D
+              模型，請改用支援 WebGL 的瀏覽器，或確認瀏覽器已啟用硬體加速。
+            </p>
+          </div>
+        )}
       </div>
 
       <Overlay
