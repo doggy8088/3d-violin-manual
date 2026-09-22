@@ -39,8 +39,9 @@ function useIsDesktop() {
 
 function SiteFooter() {
   return (
-    <footer className="pointer-events-auto glass-dark rounded-2xl px-3.5 py-2.5 text-[10.5px] leading-5 text-[#e8d5a3]/80">
-      <p>
+    <footer className="pointer-events-auto max-w-md">
+      <GoldRule className="mb-2 max-w-14 opacity-70" />
+      <p className="text-[10.5px] leading-5 tracking-wide text-[#e8d5a3]/75">
         © 2026{" "}
         <a
           href="https://github.com/doggy8088"
@@ -50,7 +51,9 @@ function SiteFooter() {
         >
           Will 保哥
         </a>
-        {" · "}
+        <span className="mx-1.5 text-[#c9a84c]/70" aria-hidden>
+          ·
+        </span>
         <a
           href="https://github.com/doggy8088/3d-violin-manual/blob/main/LICENSE"
           target="_blank"
@@ -59,7 +62,9 @@ function SiteFooter() {
         >
           MIT 授權
         </a>
-        {" · "}
+        <span className="mx-1.5 text-[#c9a84c]/70" aria-hidden>
+          ·
+        </span>
         <a
           href="https://github.com/doggy8088/3d-violin-manual"
           target="_blank"
@@ -68,10 +73,6 @@ function SiteFooter() {
         >
           原始碼
         </a>
-      </p>
-      <p className="mt-0.5 text-[#e8d5a3]/72">
-        內容整理自公開的小提琴教學與製琴史料，未經任何樂團、院校或製琴工坊認可，僅供學習參考。
-        「Pexels」為 Pexels GmbH 之商標，本站使用其免費圖庫素材並無隸屬或背書關係。
       </p>
     </footer>
   );
