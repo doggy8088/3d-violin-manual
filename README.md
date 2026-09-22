@@ -77,7 +77,8 @@ make release      # verify 後觸發 GitHub Pages 部署工作流程
 │   ├── components/
 │   │   ├── Scene.tsx              # 3D 場景、燈光、相機運鏡
 │   │   ├── ViolinModel.tsx        # 小提琴與弓的程序化模型
-│   │   ├── Overlay.tsx            # 各章節面板、導覽列、說明
+│   │   ├── Overlay.tsx            # 各章節面板、導覽列、頁尾、說明
+│   │   ├── Photo.tsx              # 照片載入失敗時顯示替代方塊
 │   │   └── Quiz.tsx               # 小測驗
 │   ├── data/handbook.ts           # 章節、部位、弦、姿勢、曲目等內容
 │   ├── lib/audio.ts               # Web Audio 弦音合成

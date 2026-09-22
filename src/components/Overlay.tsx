@@ -596,12 +596,9 @@ export function Overlay({
           ))}
         </aside>
 
-        <main
-          id="manual-content"
-          tabIndex={-1}
-          className="flex min-w-0 flex-1 items-stretch justify-between gap-4 px-4 pb-24 pt-2 sm:px-6"
-        >
+        <div className="flex min-w-0 flex-1 items-stretch justify-between gap-4 px-4 pb-24 pt-2 sm:px-6">
           <div className="pointer-events-auto flex w-full max-w-full flex-col gap-2.5">
+            <main id="manual-content" tabIndex={-1} className="min-w-0">
             {chapter === "cover" && <CoverPanel onStart={() => onChapter("history")} />}
             {chapter === "history" && <HistoryPanel />}
             {chapter === "anatomy" && (
@@ -625,9 +622,10 @@ export function Overlay({
             {chapter === "care" && <CarePanel />}
             {chapter === "repertoire" && <RepertoirePanel />}
             {chapter === "quiz" && <QuizPanel />}
+            </main>
             <SiteFooter />
           </div>
-        </main>
+        </div>
       </div>
 
       <nav

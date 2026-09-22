@@ -113,8 +113,8 @@ export function Quiz() {
         })}
       </div>
       {picked !== null && (
-        <div className="space-y-3" role="status">
-          <p className="text-sm leading-relaxed text-[#4a3224]">
+        <div className="space-y-3">
+          <p className="text-sm leading-relaxed text-[#4a3224]" role="status">
             <strong className="font-serif">
               {picked === q.a ? "答對了。" : "答錯了。"}
             </strong>

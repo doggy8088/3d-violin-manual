@@ -16,6 +16,9 @@ SITE_URL     ?= https://violin.gh.miniasp.com
 # static-tool-website-builder 內附的站點預檢腳本（可用 CHECKER=... 覆寫）
 CHECKER ?= $(HOME)/.agents/skills/static-tool-website-builder/scripts/check-static-site.sh
 
+# 目前儲存庫；以遞迴展開語法宣告，只有 release 目標會實際執行 gh。
+REPO ?= $(shell gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
+
 .PHONY: help install dev build preview serve typecheck check audit outdated \
         verify clean cleanall release status
 
@@ -71,9 +74,10 @@ cleanall: clean ## 移除建置產物與 node_modules/
 	rm -rf node_modules
 
 release: verify ## 建置、預檢，並觸發 GitHub Pages 部署工作流程
-	gh workflow run deploy.yml --repo $(shell gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
+	@test -n "$(REPO)" || { echo "找不到 GitHub 儲存庫，請確認已安裝 gh 並完成登入"; exit 1; }
+	gh workflow run deploy.yml --repo "$(REPO)"
 	@echo "已觸發部署，可用 make status 查看進度。"
 
 status: ## 顯示 GitHub Pages 與最近一次部署狀態
-	gh api "repos/{owner}/{repo}/pages" --jq '"Pages: \(.status) · \(.html_url) · cname=\(.cname)"' 2>/dev/null || echo "尚未啟用 GitHub Pages"
+	gh api "repos/{owner}/{repo}/pages" --jq '"Pages: \(.status // "idle") · cname=\(.cname) · https_enforced=\(.https_enforced)"' 2>/dev/null || echo "尚未啟用 GitHub Pages"
 	@gh run list --workflow=deploy.yml --limit 3 2>/dev/null || true
