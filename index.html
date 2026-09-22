@@ -2,18 +2,132 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>小提琴 3D 互動教學手冊</title>
-    <meta name="description" content="一本可旋轉、點選、聆聽的小提琴 3D 互動教學手冊。從克雷莫納到空弦，認識這件最會說話的樂器。" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0a0608" />
+
+    <title>小提琴 3D 互動教學手冊 — 旋轉、拆解、聆聽四根空弦</title>
+    <meta
+      name="description"
+      content="以 Three.js 打造的 3D 小提琴互動教學手冊：旋轉與拆解琴身、點選認識每個部位、試聽 G／D／A／E 四根空弦，並涵蓋持琴、運弓、左手把位與日常養護。免費、免註冊，開箱即用。"
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="author" content="Will 保哥" />
+    <link rel="canonical" href="https://violin.gh.miniasp.com/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="小提琴 3D 互動教學手冊" />
+    <meta property="og:locale" content="zh_TW" />
+    <meta property="og:title" content="小提琴 3D 互動教學手冊 — 旋轉、拆解、聆聽四根空弦" />
+    <meta
+      property="og:description"
+      content="把這件最會說話的樂器轉過來、拆開，聽它的四根空弦。可旋轉、可點選、可聆聽的 3D 小提琴入門手冊。免費、免註冊。"
+    />
+    <meta property="og:url" content="https://violin.gh.miniasp.com/" />
+    <meta property="og:image" content="https://violin.gh.miniasp.com/images/og-cover.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="小提琴 3D 互動教學手冊的社群分享卡片：暗色舞台上寫著標題「小提琴 3D 互動教學手冊」，下方列出 G、D、A、E 四根空弦與網址 violin.gh.miniasp.com。"
+    />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="小提琴 3D 互動教學手冊 — 旋轉、拆解、聆聽四根空弦" />
+    <meta
+      name="twitter:description"
+      content="把這件最會說話的樂器轉過來、拆開，聽它的四根空弦。可旋轉、可點選、可聆聽的 3D 小提琴入門手冊。"
+    />
+    <meta name="twitter:image" content="https://violin.gh.miniasp.com/images/og-cover.jpg" />
+    <meta
+      name="twitter:image:alt"
+      content="小提琴 3D 互動教學手冊的社群分享卡片，標題下方列出 G、D、A、E 四根空弦。"
+    />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Noto+Sans+TC:wght@300;400;500;600;700&family=Noto+Serif+TC:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+
+    <style>
+      /* 讓首屏在 JavaScript 與主樣式載入前就維持深色，避免白畫面閃爍。 */
+      html {
+        background-color: #0a0608;
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+      }
+    </style>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "@id": "https://violin.gh.miniasp.com/#app",
+        "name": "小提琴 3D 互動教學手冊",
+        "alternateName": "The Violin Atlas",
+        "url": "https://violin.gh.miniasp.com/",
+        "description": "可旋轉、拆解、點選與聆聽的小提琴 3D 互動教學手冊，涵蓋克雷莫納製琴史、琴身構造、四根弦的音域、持琴姿勢、運弓技法、左手把位、日常養護與經典曲目。",
+        "inLanguage": "zh-Hant",
+        "applicationCategory": "EducationalApplication",
+        "applicationSubCategory": "MusicEducation",
+        "operatingSystem": "Any modern desktop or mobile browser with WebGL",
+        "browserRequirements": "Requires JavaScript and WebGL",
+        "isAccessibleForFree": true,
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "TWD"
+        },
+        "license": "https://github.com/doggy8088/3d-violin-manual/blob/main/LICENSE",
+        "image": "https://violin.gh.miniasp.com/images/og-cover.jpg",
+        "isBasedOn": "https://github.com/doggy8088/3d-violin-manual",
+        "author": {
+          "@type": "Person",
+          "name": "Will 保哥",
+          "url": "https://github.com/doggy8088",
+          "sameAs": ["https://github.com/doggy8088"]
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div
+        style="
+          font-family: system-ui, sans-serif;
+          max-width: 34rem;
+          margin: 12vh auto;
+          padding: 0 1.5rem;
+          line-height: 1.9;
+          color: #f4ecd9;
+        "
+      >
+        <h1 style="font-size: 1.4rem; color: #e8d5a3">小提琴 3D 互動教學手冊</h1>
+        <p>
+          這個網站需要 JavaScript 才能建立 3D 小提琴、播放空弦音並切換章節。請開啟 JavaScript 後重新載入。
+        </p>
+        <p>
+          <a href="https://github.com/doggy8088/3d-violin-manual" style="color: #c9a84c"
+            >前往專案原始碼</a
+          >
+        </p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

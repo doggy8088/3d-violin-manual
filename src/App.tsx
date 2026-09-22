@@ -4,11 +4,23 @@ import { Scene } from "./components/Scene";
 import { CHAPTERS, type ChapterId } from "./data/handbook";
 import { playString, setMuted } from "./lib/audio";
 
+const INTRO_MS = 2300;
+
+/** 使用者若偏好減少動態效果，就不自動旋轉，並略過開場動畫。 */
+function prefersReducedMotion() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 export default function App() {
+  const [reducedMotion] = useState(prefersReducedMotion);
   const [chapter, setChapter] = useState<ChapterId>("cover");
   const [selectedPart, setSelectedPart] = useState<string | null>(null);
   const [exploded, setExploded] = useState(false);
-  const [autoRotate, setAutoRotate] = useState(true);
+  const [autoRotate, setAutoRotate] = useState(() => !prefersReducedMotion());
   const [showHotspots, setShowHotspots] = useState(true);
   const [bowTechnique, setBowTechnique] = useState<string | null>(null);
   const [muted, setMutedState] = useState(false);
@@ -19,9 +31,13 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const t = window.setTimeout(() => setIntro(false), 2300);
+    if (reducedMotion) {
+      setIntro(false);
+      return;
+    }
+    const t = window.setTimeout(() => setIntro(false), INTRO_MS);
     return () => window.clearTimeout(t);
-  }, []);
+  }, [reducedMotion]);
 
   useEffect(() => {
     setMuted(muted);
@@ -34,13 +50,27 @@ export default function App() {
     setMenuOpen(false);
     if (chapter === "bowing") setBowTechnique("detache");
     else setBowTechnique(null);
-    setAutoRotate(chapter === "cover");
+    setAutoRotate(chapter === "cover" && !reducedMotion);
     if (chapter === "anatomy") setShowHotspots(true);
-  }, [chapter]);
+  }, [chapter, reducedMotion]);
 
   const goChapter = useCallback((id: ChapterId) => {
     setChapter(id);
   }, []);
+
+  const current = CHAPTERS.find((c) => c.id === chapter) ?? CHAPTERS[0];
+
+  // 開場動畫不應攔住操作：按任意鍵或點一下即可略過。
+  useEffect(() => {
+    if (!intro) return;
+    const dismiss = () => setIntro(false);
+    window.addEventListener("keydown", dismiss, { once: true });
+    window.addEventListener("pointerdown", dismiss, { once: true });
+    return () => {
+      window.removeEventListener("keydown", dismiss);
+      window.removeEventListener("pointerdown", dismiss);
+    };
+  }, [intro]);
 
   const handleSelectPart = useCallback((id: string) => {
     setSelectedPart(id ? id : null);
@@ -87,7 +117,11 @@ export default function App() {
       <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70" />
       <div className="film-grain z-20" />
 
-      <div className="absolute inset-0 touch-none">
+      <div
+        role="region"
+        aria-label="小提琴 3D 模型（滑鼠或觸控拖曳可旋轉、滾輪或捏合可縮放；鍵盤請改用上方與下方的章節按鈕）"
+        className="absolute inset-0 touch-none"
+      >
         <Scene
           chapter={chapter}
           selectedPart={selectedPart}
@@ -130,8 +164,18 @@ export default function App() {
         onToggleMenu={() => setMenuOpen((v) => !v)}
       />
 
+      <p className="visually-hidden" role="status">
+        {`目前章節：第 ${current.num} 章 ${current.title}（${current.subtitle}）`}
+      </p>
+      <p className="visually-hidden" role="status">
+        {playingString ? `正在播放 ${playingString} 弦空弦` : ""}
+      </p>
+
       {intro && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#0a0608]">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 z-40 flex items-center justify-center bg-[#0a0608]"
+        >
           <div className="flex flex-col items-center gap-6">
             <svg width="88" height="88" viewBox="0 0 88 88" fill="none" aria-hidden>
               <path

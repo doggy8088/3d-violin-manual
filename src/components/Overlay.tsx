@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   BOW_TECHNIQUES,
   CARE_TIPS,
@@ -14,17 +14,74 @@ import {
 } from "../data/handbook";
 import { playChord } from "../lib/audio";
 import { cn } from "../utils/cn";
+import { Photo } from "./Photo";
 import { Quiz } from "./Quiz";
 
 function GoldRule({ className }: { className?: string }) {
   return <div className={cn("gold-line h-px w-full", className)} />;
 }
 
+/** 目錄在 lg 以上固定顯示，以下則收合；收合時必須讓其中的按鈕離開鍵盤順序。 */
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = (event: MediaQueryListEvent) => setIsDesktop(event.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  return isDesktop;
+}
+
+function SiteFooter() {
+  return (
+    <footer className="pointer-events-auto glass-dark rounded-2xl px-3.5 py-2.5 text-[10.5px] leading-5 text-[#e8d5a3]/80">
+      <p>
+        © 2026{" "}
+        <a
+          href="https://github.com/doggy8088"
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-[#e8d5a3] underline underline-offset-2 hover:text-[#f0e0a8]"
+        >
+          Will 保哥
+        </a>
+        {" · "}
+        <a
+          href="https://github.com/doggy8088/3d-violin-manual/blob/main/LICENSE"
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-[#e8d5a3] underline underline-offset-2 hover:text-[#f0e0a8]"
+        >
+          MIT 授權
+        </a>
+        {" · "}
+        <a
+          href="https://github.com/doggy8088/3d-violin-manual"
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-[#e8d5a3] underline underline-offset-2 hover:text-[#f0e0a8]"
+        >
+          原始碼
+        </a>
+      </p>
+      <p className="mt-0.5 text-[#e8d5a3]/72">
+        內容整理自公開的小提琴教學與製琴史料，未經任何樂團、院校或製琴工坊認可，僅供學習參考。
+        「Pexels」為 Pexels GmbH 之商標，本站使用其免費圖庫素材並無隸屬或背書關係。
+      </p>
+    </footer>
+  );
+}
+
 function Paper({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
       className={cn(
-        "paper-card paper-scroll max-h-[min(48vh,680px)] overflow-y-auto rounded-2xl p-5 sm:max-h-[min(70vh,680px)] sm:p-6",
+        "paper-card paper-scroll max-h-[min(42vh,540px)] overflow-y-auto rounded-2xl p-5 sm:max-h-[min(64vh,620px)] sm:p-6",
         className,
       )}
     >
@@ -67,7 +124,7 @@ function CoverPanel({ onStart }: { onStart: () => void }) {
           聆聽空弦
         </button>
       </div>
-      <p className="text-[11px] tracking-wide text-[#e8d5a3]/50">
+      <p className="text-[11px] tracking-wide text-[#e8d5a3]/75">
         拖曳旋轉 · 滾輪縮放 · 點擊部位 · ← → 翻頁
       </p>
     </div>
@@ -82,11 +139,7 @@ function HistoryPanel() {
       <p className="mt-3 text-sm leading-7 text-[#4a3224]">
         小提琴不是突然出現的。它在十六世紀的北義大利被「寫」成現在這個句子：四根弦、沙漏輪廓、F 孔、渦捲。幾乎所有後來的故事，都從倫巴底一座叫克雷莫納的小城開始。
       </p>
-      <img
-        src={IMG.workshop}
-        alt="製琴工房"
-        className="mt-4 h-36 w-full rounded-xl object-cover"
-      />
+      <Photo src={IMG.workshop} alt="製琴工房" className="mt-4 h-36 w-full" />
       <ol className="mt-5 space-y-4">
         {HISTORY_TIMELINE.map((item) => (
           <li key={item.year} className="grid grid-cols-[72px_1fr] gap-3">
@@ -99,8 +152,8 @@ function HistoryPanel() {
         ))}
       </ol>
       <div className="mt-5 grid grid-cols-2 gap-2">
-        <img src={IMG.craft} alt="製琴" className="h-24 w-full rounded-lg object-cover" />
-        <img src={IMG.luthier} alt="製琴師" className="h-24 w-full rounded-lg object-cover" />
+        <Photo src={IMG.craft} alt="製琴" className="h-24 w-full rounded-lg" />
+        <Photo src={IMG.luthier} alt="製琴師" className="h-24 w-full rounded-lg" />
       </div>
     </Paper>
   );
@@ -239,7 +292,7 @@ function PosturePanel() {
     <Paper className="max-w-md">
       <Kicker>Habitus · 04</Kicker>
       <h2 className="font-serif text-2xl">先讓身體安靜</h2>
-      <img src={IMG.playing} alt="持琴" className="mt-3 h-40 w-full rounded-xl object-cover" />
+      <Photo src={IMG.playing} alt="持琴" className="mt-3 h-40 w-full" />
       <p className="mt-3 text-sm leading-7 text-[#4a3224]">
         好的姿勢不是「看起來很標準」，而是讓左手自由、右手呼吸、脖子不幫忙夾死。樂器應該像被邀請過來，而不是被挾持。
       </p>
@@ -251,7 +304,7 @@ function PosturePanel() {
           </li>
         ))}
       </ul>
-      <img src={IMG.hands} alt="手部" className="mt-4 h-32 w-full rounded-xl object-cover" />
+      <Photo src={IMG.hands} alt="手部" className="mt-4 h-32 w-full" />
     </Paper>
   );
 }
@@ -290,7 +343,7 @@ function BowingPanel({
       <p className="font-display text-sm italic text-[#8a5a28]">{current.name}</p>
       <h3 className="font-serif text-xl">{current.zh}</h3>
       <p className="mt-2 text-sm leading-7 text-[#4a3224]">{current.desc}</p>
-      <img src={IMG.varnish} alt="弓與琴" className="mt-4 h-32 w-full rounded-xl object-cover" />
+      <Photo src={IMG.varnish} alt="弓與琴" className="mt-4 h-32 w-full" />
     </Paper>
   );
 }
@@ -303,11 +356,7 @@ function LeftHandPanel() {
       <p className="mt-2 text-sm leading-7 text-[#4a3224]">
         音準是耳朵的責任。第一把位在 A 弦上：空弦 A、1 指 B、2 指 C#、3 指 D、4 指 E。3 指可與 D 空弦對音，4 指可與 E 空弦對音——這是最古老的校正法。
       </p>
-      <img
-        src={IMG.fingerboard}
-        alt="指板"
-        className="mt-3 h-36 w-full rounded-xl object-cover"
-      />
+      <Photo src={IMG.fingerboard} alt="指板" className="mt-3 h-36 w-full" />
       <ul className="mt-4 divide-y divide-[#2a1810]/10">
         {FINGER_POSITIONS.map((f) => (
           <li key={f.finger} className="flex items-baseline gap-3 py-2">
@@ -342,7 +391,7 @@ function CarePanel() {
     <Paper className="max-w-md">
       <Kicker>Cura · 07</Kicker>
       <h2 className="font-serif text-2xl">它是木頭，會呼吸</h2>
-      <img src={IMG.darkViolin} alt="小提琴" className="mt-3 h-36 w-full rounded-xl object-cover" />
+      <Photo src={IMG.darkViolin} alt="小提琴" className="mt-3 h-36 w-full" />
       <p className="mt-3 text-sm leading-7 text-[#4a3224]">
         調音時先用弦軸做大動作，再用微調器做最後的呼吸。A 先對準 440 Hz，其餘以五度向上、向下聽「是否平靜」。五度如果會滾、會吵，就是還沒純。
       </p>
@@ -363,11 +412,7 @@ function RepertoirePanel() {
     <Paper className="max-w-lg">
       <Kicker>Repertorium · 08</Kicker>
       <h2 className="font-serif text-2xl">幾首值得用一生靠近的作品</h2>
-      <img
-        src={IMG.violinScore}
-        alt="樂譜與小提琴"
-        className="mt-3 h-36 w-full rounded-xl object-cover"
-      />
+      <Photo src={IMG.violinScore} alt="樂譜與小提琴" className="mt-3 h-36 w-full" />
       <div className="mt-4 space-y-3">
         {REPERTOIRE.map((r) => (
           <article key={r.title} className="border-b border-[#2a1810]/10 pb-3">
@@ -437,14 +482,23 @@ export function Overlay({
 }) {
   const current = CHAPTERS.find((c) => c.id === chapter)!;
   const idx = CHAPTERS.findIndex((c) => c.id === chapter);
+  const isDesktop = useIsDesktop();
+  const asideHidden = !menuOpen && !isDesktop;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
-      <header className="pointer-events-auto flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <a href="#manual-content" className="skip-link pointer-events-auto">
+        跳至主要內容
+      </a>
+
+      {chapter !== "cover" && <h1 className="visually-hidden">小提琴 3D 互動教學手冊</h1>}
+
+      <header className="pointer-events-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => onChapter("cover")}
+            aria-label="回到序章：小提琴 3D 互動教學手冊"
             className="flex items-center gap-2 text-[#e8d5a3]"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -457,7 +511,7 @@ export function Overlay({
             </svg>
             <span className="hidden font-serif text-sm sm:inline">小提琴手冊</span>
           </button>
-          <span className="hidden text-[11px] tracking-[0.28em] text-[#e8d5a3]/50 sm:inline">
+          <span className="hidden text-[11px] tracking-[0.28em] text-[#e8d5a3]/75 sm:inline">
             {current.latin}
           </span>
         </div>
@@ -465,6 +519,7 @@ export function Overlay({
           <button
             type="button"
             onClick={onToggleRotate}
+            aria-label={autoRotate ? "停止自動旋轉" : "開啟自動旋轉"}
             className="glass-dark rounded-full px-3 py-1.5 text-[11px] tracking-wide text-[#e8d5a3]"
           >
             {autoRotate ? "停止旋轉" : "自動旋轉"}
@@ -472,6 +527,7 @@ export function Overlay({
           <button
             type="button"
             onClick={onToggleMute}
+            aria-label={muted ? "開啟空弦試聽的聲音" : "關閉空弦試聽的聲音"}
             className="glass-dark rounded-full px-3 py-1.5 text-[11px] text-[#e8d5a3]"
           >
             {muted ? "聲音關" : "聲音開"}
@@ -479,13 +535,17 @@ export function Overlay({
           <button
             type="button"
             onClick={onToggleHelp}
-            className="glass-dark hidden rounded-full px-3 py-1.5 text-[11px] text-[#e8d5a3] sm:inline"
+            aria-expanded={help}
+            aria-controls="manual-help"
+            className="glass-dark rounded-full px-3 py-1.5 text-[11px] text-[#e8d5a3]"
           >
             指引
           </button>
           <button
             type="button"
             onClick={onToggleMenu}
+            aria-expanded={menuOpen}
+            aria-controls="manual-toc"
             className="glass-dark rounded-full px-3 py-1.5 text-[11px] text-[#e8d5a3] lg:hidden"
           >
             目錄
@@ -503,8 +563,12 @@ export function Overlay({
           />
         )}
         <aside
+          id="manual-toc"
+          aria-label="章節目錄"
+          aria-hidden={asideHidden || undefined}
+          inert={asideHidden || undefined}
           className={cn(
-            "pointer-events-auto glass-dark absolute top-0 z-20 flex h-full w-56 flex-col gap-1 overflow-y-auto p-3 transition lg:relative lg:translate-x-0 lg:bg-transparent lg:backdrop-blur-0",
+            "pointer-events-auto glass-dark paper-scroll absolute top-0 z-20 flex h-full w-56 flex-col gap-1 overflow-y-auto p-3 transition lg:relative lg:translate-x-0 lg:bg-transparent lg:backdrop-blur-0",
             menuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           )}
         >
@@ -516,22 +580,28 @@ export function Overlay({
                 onChapter(c.id);
                 if (menuOpen) onToggleMenu();
               }}
+              aria-current={c.id === chapter ? "page" : undefined}
+              aria-label={`${c.num} ${c.title}：${c.subtitle}`}
               className={cn(
                 "rounded-xl px-3 py-2 text-left transition",
                 c.id === chapter
                   ? "bg-[#c9a84c]/15 text-[#f0e0a8]"
-                  : "text-[#e8d5a3]/55 hover:text-[#e8d5a3]",
+                  : "text-[#e8d5a3]/75 hover:text-[#e8d5a3]",
               )}
             >
               <span className="block font-display text-[10px] tracking-[0.25em]">{c.num}</span>
               <span className="font-serif text-sm">{c.title}</span>
-              <span className="ml-2 hidden text-[11px] text-[#e8d5a3]/40 xl:inline">{c.subtitle}</span>
+              <span className="ml-2 hidden text-[11px] text-[#e8d5a3]/65 xl:inline">{c.subtitle}</span>
             </button>
           ))}
         </aside>
 
-        <div className="flex min-w-0 flex-1 items-stretch justify-between gap-4 px-4 pb-24 pt-2 sm:px-6">
-          <div className="pointer-events-auto max-w-full">
+        <main
+          id="manual-content"
+          tabIndex={-1}
+          className="flex min-w-0 flex-1 items-stretch justify-between gap-4 px-4 pb-24 pt-2 sm:px-6"
+        >
+          <div className="pointer-events-auto flex w-full max-w-full flex-col gap-2.5">
             {chapter === "cover" && <CoverPanel onStart={() => onChapter("history")} />}
             {chapter === "history" && <HistoryPanel />}
             {chapter === "anatomy" && (
@@ -555,17 +625,21 @@ export function Overlay({
             {chapter === "care" && <CarePanel />}
             {chapter === "repertoire" && <RepertoirePanel />}
             {chapter === "quiz" && <QuizPanel />}
+            <SiteFooter />
           </div>
-        </div>
+        </main>
       </div>
 
-      <nav className="pointer-events-auto glass-dark absolute bottom-3 left-1/2 z-20 w-[min(96vw,920px)] -translate-x-1/2 rounded-full px-3 py-2 sm:px-4">
+      <nav
+        aria-label="章節導覽"
+        className="pointer-events-auto glass-dark absolute bottom-3 left-1/2 z-20 w-[min(96vw,920px)] -translate-x-1/2 rounded-full px-3 py-2 sm:px-4"
+      >
         <div className="flex items-center gap-1">
           <button
             type="button"
             disabled={idx <= 0}
             onClick={() => onChapter(CHAPTERS[idx - 1].id)}
-            className="px-2 text-[#e8d5a3] disabled:opacity-30"
+            className="px-2 py-1 text-[#e8d5a3] disabled:opacity-30"
             aria-label="上一章"
           >
             ←
@@ -576,12 +650,14 @@ export function Overlay({
                 type="button"
                 key={c.id}
                 onClick={() => onChapter(c.id)}
-                className="group flex min-w-[28px] flex-1 flex-col items-center gap-1"
+                aria-current={c.id === chapter ? "page" : undefined}
+                aria-label={`${c.num} ${c.title}：${c.subtitle}`}
+                className="group flex min-w-[28px] flex-1 flex-col items-center gap-1 py-1"
               >
                 <span
                   className={cn(
                     "text-[9px] tracking-widest",
-                    c.id === chapter ? "text-[#e8d5a3]" : "text-[#e8d5a3]/35",
+                    c.id === chapter ? "text-[#e8d5a3]" : "text-[#e8d5a3]/65",
                   )}
                 >
                   {c.num}
@@ -589,13 +665,13 @@ export function Overlay({
                 <span
                   className={cn(
                     "h-1 w-full max-w-10 rounded-full",
-                    c.id === chapter ? "bg-[#c9a84c]" : "bg-[#c9a84c]/20",
+                    c.id === chapter ? "bg-[#c9a84c]" : "bg-[#c9a84c]/30",
                   )}
                 />
                 <span
                   className={cn(
                     "hidden font-serif text-[10px] sm:block",
-                    c.id === chapter ? "text-[#f4ecd9]" : "text-[#e8d5a3]/40",
+                    c.id === chapter ? "text-[#f4ecd9]" : "text-[#e8d5a3]/65",
                   )}
                 >
                   {c.title}
@@ -607,7 +683,7 @@ export function Overlay({
             type="button"
             disabled={idx >= CHAPTERS.length - 1}
             onClick={() => onChapter(CHAPTERS[idx + 1].id)}
-            className="px-2 text-[#e8d5a3] disabled:opacity-30"
+            className="px-2 py-1 text-[#e8d5a3] disabled:opacity-30"
             aria-label="下一章"
           >
             →
@@ -617,9 +693,17 @@ export function Overlay({
 
       {help && (
         <div className="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-black/55 p-4">
-          <div className="paper-card max-w-md rounded-2xl p-6">
+          <div
+            id="manual-help"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="manual-help-title"
+            className="paper-card max-w-md rounded-2xl p-6"
+          >
             <Kicker>How to read</Kicker>
-            <h3 className="font-serif text-2xl">閱讀方式</h3>
+            <h2 id="manual-help-title" className="font-serif text-2xl">
+              閱讀方式
+            </h2>
             <ul className="mt-4 space-y-2 text-sm leading-7 text-[#4a3224]">
               <li>拖曳畫面以旋轉小提琴，滾輪或捏合可縮放。</li>
               <li>在「解剖」章節點選部位，相機會靠過去。按 E 可分解。</li>
@@ -629,6 +713,7 @@ export function Overlay({
             </ul>
             <button
               type="button"
+              autoFocus
               onClick={onToggleHelp}
               className="mt-5 rounded-full bg-[#2a1810] px-5 py-2 text-sm text-[#f4ecd9]"
             >

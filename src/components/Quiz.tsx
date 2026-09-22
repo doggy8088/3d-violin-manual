@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { QUIZ } from "../data/handbook";
 import { cn } from "../utils/cn";
 
@@ -7,8 +7,14 @@ export function Quiz() {
   const [picked, setPicked] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
+  const nextRef = useRef<HTMLButtonElement>(null);
   const q = QUIZ[index];
   const progress = useMemo(() => ((done ? QUIZ.length : index) / QUIZ.length) * 100, [done, index]);
+
+  // 作答後選項即失效，因此把焦點移到「下一題」，避免鍵盤使用者停在已停用的選項上。
+  useEffect(() => {
+    if (picked !== null) nextRef.current?.focus();
+  }, [picked]);
 
   const choose = (i: number) => {
     if (picked !== null) return;
@@ -43,7 +49,7 @@ export function Quiz() {
             ? "骨架有了。回去翻一翻解剖與四弦兩章。"
             : "沒關係——耳朵是練來的。再走一遍手冊吧。";
     return (
-      <div className="space-y-5">
+      <div className="space-y-5" role="status">
         <p className="ornament text-[10px] text-[#8a5a28]">Examen</p>
         <h3 className="font-serif text-2xl">你的分數</h3>
         <p className="font-display text-5xl text-[#7a4a14]">
@@ -66,29 +72,36 @@ export function Quiz() {
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <p className="ornament text-[10px] text-[#8a5a28]">Examen</p>
-        <p className="text-xs tracking-widest text-[#8a5a28]">
+        <p className="text-xs tracking-widest text-[#8a5a28]" aria-hidden>
           {String(index + 1).padStart(2, "0")} / {String(QUIZ.length).padStart(2, "0")}
         </p>
       </div>
       <div className="h-[2px] w-full overflow-hidden rounded bg-[#2a1810]/10">
         <div className="h-full bg-[#c9a84c] transition-all" style={{ width: `${progress}%` }} />
       </div>
-      <h3 className="font-serif text-xl leading-snug">{q.q}</h3>
+      <h3 className="font-serif text-xl leading-snug">
+        <span className="visually-hidden">
+          第 {index + 1} 題，共 {QUIZ.length} 題：
+        </span>
+        {q.q}
+      </h3>
       <div className="space-y-2">
         {q.options.map((opt, i) => {
           const isCorrect = i === q.a;
           const isPick = i === picked;
+          const answered = picked !== null;
           return (
             <button
               type="button"
               key={opt}
               onClick={() => choose(i)}
+              aria-disabled={answered}
               className={cn(
                 "block w-full rounded-xl border px-4 py-3 text-left text-sm transition",
-                picked === null && "border-[#2a1810]/15 hover:border-[#c9a84c] hover:bg-[#c9a84c]/10",
-                picked !== null && isCorrect && "border-[#2f6b3a] bg-[#2f6b3a]/12 text-[#1d3d24]",
-                picked !== null && isPick && !isCorrect && "border-[#8a2a2a] bg-[#8a2a2a]/10 text-[#5a1818]",
-                picked !== null && !isPick && !isCorrect && "border-transparent opacity-50",
+                !answered && "border-[#2a1810]/15 hover:border-[#c9a84c] hover:bg-[#c9a84c]/10",
+                answered && isCorrect && "border-[#2f6b3a] bg-[#2f6b3a]/12 text-[#1d3d24]",
+                answered && isPick && !isCorrect && "border-[#8a2a2a] bg-[#8a2a2a]/10 text-[#5a1818]",
+                answered && !isPick && !isCorrect && "border-transparent opacity-50",
               )}
             >
               <span className="mr-2 font-display text-xs text-[#8a5a28]">
@@ -100,9 +113,15 @@ export function Quiz() {
         })}
       </div>
       {picked !== null && (
-        <div className="space-y-3">
-          <p className="text-sm leading-relaxed text-[#4a3224]">{q.explain}</p>
+        <div className="space-y-3" role="status">
+          <p className="text-sm leading-relaxed text-[#4a3224]">
+            <strong className="font-serif">
+              {picked === q.a ? "答對了。" : "答錯了。"}
+            </strong>
+            {q.explain}
+          </p>
           <button
+            ref={nextRef}
             type="button"
             onClick={next}
             className="rounded-full bg-[#2a1810] px-5 py-2 text-sm tracking-wide text-[#f4ecd9]"
