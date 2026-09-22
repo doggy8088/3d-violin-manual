@@ -44,6 +44,7 @@ export default function App() {
   const [muted, setMutedState] = useState(false);
   const [intro, setIntro] = useState(true);
   const [playingString, setPlayingString] = useState<string | null>(null);
+  const [mutedNotice, setMutedNotice] = useState<string | null>(null);
   const [highlightString, setHighlightString] = useState<string | null>(null);
   const [help, setHelp] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -59,6 +60,7 @@ export default function App() {
 
   useEffect(() => {
     setMuted(muted);
+    if (!muted) setMutedNotice(null);
   }, [muted]);
 
   useEffect(() => {
@@ -93,12 +95,21 @@ export default function App() {
     setAutoRotate(false);
   }, []);
 
-  const handlePlayString = useCallback((id: string) => {
-    void playString(id);
-    setPlayingString(id);
-    setHighlightString(id);
-    window.setTimeout(() => setPlayingString(null), 1700);
-  }, []);
+  const handlePlayString = useCallback(
+    (id: string) => {
+      void playString(id);
+      setHighlightString(id);
+      if (muted) {
+        // 靜音時不要假裝正在播放，否則使用者會以為開關沒有作用。
+        setMutedNotice(id);
+        window.setTimeout(() => setMutedNotice(null), 1800);
+        return;
+      }
+      setPlayingString(id);
+      window.setTimeout(() => setPlayingString(null), 1700);
+    },
+    [muted],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -201,8 +212,18 @@ export default function App() {
         {`目前章節：第 ${current.num} 章 ${current.title}（${current.subtitle}）`}
       </p>
       <p className="visually-hidden" role="status">
-        {playingString ? `正在播放 ${playingString} 弦空弦` : ""}
+        {playingString
+          ? `正在播放 ${playingString} 弦空弦`
+          : mutedNotice
+            ? `目前為靜音，${mutedNotice} 弦沒有播放聲音`
+            : ""}
       </p>
+
+      {mutedNotice && (
+        <p className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 rounded-full border border-[#c9a84c]/35 bg-[rgba(12,7,9,0.88)] px-3.5 py-1.5 text-[11px] tracking-wide text-[#f0e0a8]">
+          已靜音，沒有播放聲音
+        </p>
+      )}
 
       {intro && (
         <div

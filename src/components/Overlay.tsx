@@ -21,6 +21,40 @@ function GoldRule({ className }: { className?: string }) {
   return <div className={cn("gold-line h-px w-full", className)} />;
 }
 
+/** 喇叭圖示；靜音時畫上斜線，讓開關狀態一眼可見。 */
+function SpeakerIcon({ muted }: { muted: boolean }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden className="shrink-0">
+      <path d="M8.4 2.2 4.9 5.1H2.7v5.8h2.2l3.5 2.9V2.2Z" fill="currentColor" />
+      {muted ? (
+        <path
+          d="M10.9 6.4 14 9.6M14 6.4l-3.1 3.2"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      ) : (
+        <>
+          <path
+            d="M11 6.1a3 3 0 0 1 0 3.8"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d="M12.9 4.3a5.4 5.4 0 0 1 0 7.4"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            fill="none"
+          />
+        </>
+      )}
+    </svg>
+  );
+}
+
 /** 目錄在 lg 以上固定顯示，以下則收合；收合時必須讓其中的按鈕離開鍵盤順序。 */
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(
@@ -39,8 +73,7 @@ function useIsDesktop() {
 
 function SiteFooter() {
   return (
-    <footer className="pointer-events-auto max-w-md">
-      <GoldRule className="mb-2 max-w-14 opacity-70" />
+    <footer className="pointer-events-auto px-4 text-right sm:px-6">
       <p className="text-[10.5px] leading-5 tracking-wide text-[#e8d5a3]/75">
         © 2026{" "}
         <a
@@ -492,9 +525,8 @@ export function Overlay({
         跳至主要內容
       </a>
 
-      {chapter !== "cover" && <h1 className="visually-hidden">小提琴 3D 互動教學手冊</h1>}
-
       <header className="pointer-events-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 sm:px-6">
+        {chapter !== "cover" && <h1 className="visually-hidden">小提琴 3D 互動教學手冊</h1>}
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -528,10 +560,15 @@ export function Overlay({
           <button
             type="button"
             onClick={onToggleMute}
-            aria-label={muted ? "開啟空弦試聽的聲音" : "關閉空弦試聽的聲音"}
-            className="glass-dark rounded-full px-3 py-1.5 text-[11px] text-[#e8d5a3]"
+            aria-pressed={!muted}
+            title="切換空弦試聽的聲音"
+            className={cn(
+              "glass-dark flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] transition",
+              muted ? "text-[#e8d5a3]/70" : "text-[#e8d5a3]",
+            )}
           >
-            {muted ? "聲音關" : "聲音開"}
+            <SpeakerIcon muted={muted} />
+            {muted ? "已靜音" : "有聲"}
           </button>
           <button
             type="button"
@@ -553,6 +590,8 @@ export function Overlay({
           </button>
         </div>
       </header>
+
+      <SiteFooter />
 
       <div className="relative flex min-h-0 flex-1">
         {menuOpen && (
@@ -598,8 +637,11 @@ export function Overlay({
         </aside>
 
         <div className="flex min-w-0 flex-1 items-stretch justify-between gap-4 px-4 pb-24 pt-2 sm:px-6">
-          <div className="pointer-events-auto flex w-full max-w-full flex-col gap-2.5">
-            <main id="manual-content" tabIndex={-1} className="min-w-0">
+          <main
+            id="manual-content"
+            tabIndex={-1}
+            className="pointer-events-auto min-w-0 max-w-full"
+          >
             {chapter === "cover" && <CoverPanel onStart={() => onChapter("history")} />}
             {chapter === "history" && <HistoryPanel />}
             {chapter === "anatomy" && (
@@ -623,9 +665,7 @@ export function Overlay({
             {chapter === "care" && <CarePanel />}
             {chapter === "repertoire" && <RepertoirePanel />}
             {chapter === "quiz" && <QuizPanel />}
-            </main>
-            <SiteFooter />
-          </div>
+          </main>
         </div>
       </div>
 
@@ -706,7 +746,7 @@ export function Overlay({
             <ul className="mt-4 space-y-2 text-sm leading-7 text-[#4a3224]">
               <li>拖曳畫面以旋轉小提琴，滾輪或捏合可縮放。</li>
               <li>在「解剖」章節點選部位，相機會靠過去。按 E 可分解。</li>
-              <li>「四弦」章節可聽空弦；請先與頁面互動以開啟音訊。</li>
+              <li>「四弦」章節可聽空弦；請先與頁面互動以開啟音訊，右上角可切換「有聲／已靜音」。</li>
               <li>「運弓」章節選擇技法，弓會示範動作。</li>
               <li>鍵盤：← → 翻頁，Esc 取消選取，? 開關本說明。</li>
             </ul>
