@@ -207,7 +207,11 @@ function EbonyMat({ active }: { active?: boolean }) {
 
 function Highlight({ active }: { active: boolean }) {
   if (!active) return null;
-  return <Outlines thickness={2.2} color="#e8c547" screenspace />;
+  // drei 的 Outlines 一旦帶上 screenspace，thickness 會被當成「模型單位」往法線外推，
+  // 而不是像素。零件本身多半只有 0.0x～0.3 單位，外推 2.2 單位等於用一層巨大的金黃色
+  // 背殼把整把琴包住，相機一靠近就會被它填滿整個畫面。
+  // 走預設的裁剪空間分支，thickness 才是穩定的像素寬度。
+  return <Outlines thickness={3.5} color="#e8c547" />;
 }
 
 function VoluteMesh({ active }: { active: boolean }) {
