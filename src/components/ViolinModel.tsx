@@ -10,6 +10,8 @@ export const BODY_BOTTOM = -1.78;
 export const RIB = 0.3;
 export const NUT_Y = 3.08;
 export const BRIDGE_Y = -0.18;
+/** 琴橋輪廓的高度（從腳到頂端），用來把琴橋擺成「腳踩面板、頂端頂著弦」。 */
+const BRIDGE_HEIGHT = 0.38;
 export const SCALE_LEN = NUT_Y - BRIDGE_Y;
 
 const ZERO = new THREE.Vector3();
@@ -26,6 +28,7 @@ const EXPLODE: Record<string, THREE.Vector3> = {
   strings: new THREE.Vector3(0, 0, 0.85),
   tailpiece: new THREE.Vector3(0, -0.55, 0.25),
   chinrest: new THREE.Vector3(-0.7, -0.35, 0.3),
+  shoulderrest: new THREE.Vector3(0.15, -0.6, -0.75),
   bow: new THREE.Vector3(0, -1.1, 0.4),
 };
 
@@ -156,6 +159,9 @@ function Part({
   const active = selected === id || hovered;
   const handlers = {
     onClick: (e: ThreeEvent<MouseEvent>) => {
+      // 拖曳（旋轉／平移）放手時也會被判定成 click，這裡擋掉，避免只是想把琴轉個角度
+      // 就被選取零件、鏡頭被拉去特寫。
+      if (e.delta > 6) return;
       e.stopPropagation();
       onSelect(id);
     },
@@ -172,19 +178,24 @@ function Part({
   );
 }
 
+/**
+ * 漆面顏色交給貼圖決定，材質只上一層淡暖色。以前兩者都是深褐色，相乘之後
+ * 只剩紅通道有值（實測 RGB 約 95/5/2），正面看起來就是一片黑，連 F 孔與
+ * 琴橋都陷進背景裡。
+ */
 function VarnishMat({ active, maple = false }: { active?: boolean; maple?: boolean }) {
   const map = useMemo(() => (maple ? getMapleTexture() : getVarnishTexture()), [maple]);
   return (
     <meshPhysicalMaterial
       map={map}
-      color={active ? "#d07a38" : maple ? "#c47a3c" : "#a24e1c"}
-      roughness={0.26}
+      color={active ? "#ffd196" : "#f4e2c8"}
+      roughness={0.28}
       metalness={0.05}
       clearcoat={1}
       clearcoatRoughness={0.16}
       sheen={0.5}
       sheenRoughness={0.35}
-      sheenColor="#e8c090"
+      sheenColor="#ffe4bc"
       emissive={active ? "#7a3c12" : "#000000"}
       emissiveIntensity={active ? 0.4 : 0}
     />
@@ -196,7 +207,7 @@ function EbonyMat({ active }: { active?: boolean }) {
   return (
     <meshStandardMaterial
       map={map}
-      color={active ? "#3a322c" : "#161210"}
+      color={active ? "#5a5048" : "#332b24"}
       roughness={0.42}
       metalness={0.12}
       emissive={active ? "#4a3808" : "#000000"}
@@ -251,7 +262,7 @@ function Purfling() {
   const geom = useMemo(() => {
     const pts = createBodyShape()
       .getPoints(200)
-      .map((p) => new THREE.Vector3(p.x * 0.962, p.y * 0.962, RIB + 0.004));
+      .map((p) => new THREE.Vector3(p.x * 0.962, p.y * 0.962, RIB + 0.052));
     const g = new THREE.BufferGeometry().setFromPoints(pts);
     return g;
   }, []);
@@ -297,8 +308,14 @@ function FHoles({ active }: { active: boolean }) {
   }, []);
   useEffect(() => () => geom.dispose(), [geom]);
   return (
-    <mesh geometry={geom} position={[0, 0, RIB - 0.01]} castShadow>
-      <meshStandardMaterial color={active ? "#3a2208" : "#090604"} roughness={0.7} />
+    <mesh geometry={geom} position={[0, 0, RIB + 0.05]} castShadow>
+      <meshStandardMaterial
+        color={active ? "#5a3a12" : "#100b06"}
+        roughness={0.85}
+        metalness={0.1}
+        emissive={active ? "#3a2408" : "#000"}
+        emissiveIntensity={active ? 0.4 : 0}
+      />
       <Highlight active={active} />
     </mesh>
   );
@@ -325,21 +342,86 @@ function BridgeMesh({ active }: { active: boolean }) {
       bevelSize: 0.004,
       bevelSegments: 1,
     });
-    g.rotateX(-Math.PI / 2);
-    g.translate(0, 0.02, 0);
     return g;
   }, []);
   useEffect(() => () => geom.dispose(), [geom]);
+  // 琴橋的「腳」要踩在面板上、頂端頂到弦的高度（BRIDGE_Y 就是弦過橋的位置），
+  // z 也必須高於面板實際前緣（面板帶倒角，前緣在 RIB + 0.048）才不會整座埋進琴身。
   return (
-    <mesh geometry={geom} position={[0, BRIDGE_Y, RIB]} castShadow>
+    <mesh geometry={geom} position={[0, BRIDGE_Y - BRIDGE_HEIGHT, RIB + 0.062]} castShadow>
       <meshStandardMaterial
-        color={active ? "#e8c090" : "#c9a066"}
-        roughness={0.45}
+        color={active ? "#ffe9bb" : "#e7cd9e"}
+        roughness={0.42}
         emissive={active ? "#6a4a10" : "#000"}
         emissiveIntensity={active ? 0.3 : 0}
       />
       <Highlight active={active} />
     </mesh>
+  );
+}
+
+/**
+ * 肩墊：兩隻橡膠腳夾住下圓的邊緣，弧形橫桿與軟墊貼著肩膀。位置在背板之後
+ * （琴身往 -Z 長），因此從正面只看得到兩隻腳的一小截——這與實琴相同。
+ */
+function ShoulderRest({ active }: { active: boolean }) {
+  const frame = useMemo(
+    () =>
+      new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-0.96, -1.0, -0.2),
+        new THREE.Vector3(-0.62, -1.16, -0.36),
+        new THREE.Vector3(0, -1.22, -0.42),
+        new THREE.Vector3(0.62, -1.16, -0.36),
+        new THREE.Vector3(0.96, -1.0, -0.2),
+      ]),
+    [],
+  );
+  const padCurve = useMemo(
+    () => new THREE.CatmullRomCurve3(frame.getPoints(16).slice(4, 13)),
+    [frame],
+  );
+  return (
+    <group>
+      <mesh castShadow>
+        <tubeGeometry args={[frame, 48, 0.036, 8, false]} />
+        <meshStandardMaterial
+          color={active ? "#e0a45c" : "#4a3324"}
+          roughness={0.42}
+          metalness={0.3}
+          emissive={active ? "#6a4410" : "#000"}
+          emissiveIntensity={active ? 0.35 : 0}
+        />
+        <Highlight active={active} />
+      </mesh>
+      <mesh castShadow>
+        <tubeGeometry args={[padCurve, 40, 0.072, 12, false]} />
+        <meshStandardMaterial
+          color={active ? "#7a6250" : "#2c241d"}
+          roughness={0.9}
+          emissive={active ? "#4a3818" : "#000"}
+          emissiveIntensity={active ? 0.3 : 0}
+        />
+        <Highlight active={active} />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh
+          key={side}
+          position={[side * 1.03, -0.99, -0.06]}
+          rotation={[0, 0, side * 0.22]}
+          castShadow
+        >
+          <boxGeometry args={[0.11, 0.2, 0.22]} />
+          <meshStandardMaterial
+            color={active ? "#6a5a4a" : "#231d18"}
+            roughness={0.85}
+            metalness={0.05}
+            emissive={active ? "#4a3818" : "#000"}
+            emissiveIntensity={active ? 0.3 : 0}
+          />
+          <Highlight active={active} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
@@ -411,6 +493,7 @@ function ViolinString({
       ref={meshRef}
       geometry={geom}
       onClick={(e) => {
+        if (e.delta > 6) return;
         e.stopPropagation();
         onPlay();
       }}
@@ -541,7 +624,7 @@ export function ViolinModel({
       </Part>
 
       <Part id="fingerboard" selected={selectedPart} onSelect={onSelectPart} exploded={exploded}>
-        <mesh position={[0, (NUT_Y + 0.42) / 2, RIB + 0.035]} castShadow>
+        <mesh position={[0, (NUT_Y + 0.42) / 2, RIB + 0.05]} castShadow>
           <boxGeometry args={[0.24, NUT_Y - 0.42, 0.06]} />
           <EbonyMat active={is("fingerboard")} />
           <Highlight active={is("fingerboard")} />
@@ -551,7 +634,7 @@ export function ViolinModel({
       <Part id="nut" selected={selectedPart} onSelect={onSelectPart} exploded={exploded}>
         <mesh position={[0, NUT_Y, RIB + 0.07]} castShadow>
           <boxGeometry args={[0.26, 0.045, 0.07]} />
-          <meshStandardMaterial color="#d9cbb0" roughness={0.4} />
+          <meshStandardMaterial color="#e8dcc2" roughness={0.4} />
           <Highlight active={is("nut")} />
         </mesh>
       </Part>
@@ -640,6 +723,10 @@ export function ViolinModel({
         </mesh>
       </Part>
 
+      <Part id="shoulderrest" selected={selectedPart} onSelect={onSelectPart} exploded={exploded}>
+        <ShoulderRest active={is("shoulderrest")} />
+      </Part>
+
       {exploded && (
         <mesh position={[0.14, BRIDGE_Y, RIB * 0.5]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[0.018, 0.018, RIB - 0.02, 10]} />
@@ -671,6 +758,7 @@ const HOTSPOT_POS: Record<string, [number, number, number]> = {
   strings: [0.22, 0.9, 0.45],
   tailpiece: [0.28, -1.1, 0.28],
   chinrest: [-0.62, -1.5, 0.28],
+  shoulderrest: [1.14, -1.02, -0.22],
 };
 
 const BOW_REST = new THREE.Vector3(1.6, -1.6, 0.35);

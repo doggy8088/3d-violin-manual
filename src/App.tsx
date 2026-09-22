@@ -48,6 +48,8 @@ export default function App() {
   const [highlightString, setHighlightString] = useState<string | null>(null);
   const [help, setHelp] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [panMode, setPanMode] = useState(false);
+  const [viewResetToken, setViewResetToken] = useState(0);
 
   useEffect(() => {
     if (reducedMotion) {
@@ -122,6 +124,10 @@ export default function App() {
         setChapter(CHAPTERS[idx - 1].id);
       } else if (e.key === "e" || e.key === "E") {
         if (chapter === "anatomy") setExploded((v) => !v);
+      } else if (e.key === "p" || e.key === "P") {
+        setPanMode((v) => !v);
+      } else if (e.key === "r" || e.key === "R") {
+        setViewResetToken((v) => v + 1);
       } else if (e.key === "?" || e.key === "h" || e.key === "H") {
         setHelp((v) => !v);
       } else if (e.key === "Escape") {
@@ -148,7 +154,7 @@ export default function App() {
         role="region"
         aria-label={
           webglAvailable
-            ? "小提琴 3D 模型（滑鼠或觸控拖曳可旋轉、滾輪或捏合可縮放；鍵盤請改用上方與下方的章節按鈕）"
+            ? "小提琴 3D 模型（滑鼠或觸控拖曳可旋轉、滾輪或捏合可縮放；開啟平移模式後拖曳可移動琴身；鍵盤請改用上方與下方的章節按鈕）"
             : "小提琴 3D 模型無法顯示"
         }
         className="absolute inset-0 touch-none"
@@ -166,6 +172,8 @@ export default function App() {
             playingString={playingString}
             bowTechnique={bowTechnique}
             autoRotate={autoRotate}
+            panMode={panMode}
+            resetToken={viewResetToken}
             onUserInteract={() => setAutoRotate(false)}
           />
         ) : (
@@ -200,6 +208,9 @@ export default function App() {
         }}
         autoRotate={autoRotate}
         onToggleRotate={() => setAutoRotate((v) => !v)}
+        panMode={panMode}
+        onTogglePan={() => setPanMode((v) => !v)}
+        onResetView={() => setViewResetToken((v) => v + 1)}
         muted={muted}
         onToggleMute={() => setMutedState((v) => !v)}
         help={help}

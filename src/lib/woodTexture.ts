@@ -73,10 +73,11 @@ export function getVarnishTexture() {
   canvas.width = 512;
   canvas.height = 1024;
   const ctx = canvas.getContext("2d")!;
+  // 貼圖本身就是琴身的顏色基準；太暗的話再乘上材質色會直接把表面壓成黑色。
   paintWood(ctx, 512, 1024, {
-    base: "#8a4318",
-    dark: "#4a1f08",
-    light: "#d4a066",
+    base: "#b4743c",
+    dark: "#6a3413",
+    light: "#e8c08a",
     flame: false,
   });
   varnishTex = toTexture(canvas);
@@ -90,9 +91,9 @@ export function getMapleTexture() {
   canvas.height = 1024;
   const ctx = canvas.getContext("2d")!;
   paintWood(ctx, 512, 1024, {
-    base: "#b06a32",
-    dark: "#6a3414",
-    light: "#e6c08a",
+    base: "#c98b4e",
+    dark: "#7c4418",
+    light: "#f0d2a2",
     flame: true,
   });
   mapleTex = toTexture(canvas);
@@ -106,9 +107,9 @@ export function getEbonyTexture() {
   canvas.height = 256;
   const ctx = canvas.getContext("2d")!;
   paintWood(ctx, 256, 256, {
-    base: "#1a1614",
-    dark: "#0a0908",
-    light: "#3a342e",
+    base: "#3e332a",
+    dark: "#1a1410",
+    light: "#6a5c50",
     flame: false,
   });
   ebonyTex = toTexture(canvas);

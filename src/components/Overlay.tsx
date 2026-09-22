@@ -102,7 +102,10 @@ function usePanelDrag(
   const moved = useRef(false);
   const restoreRef = useRef<HTMLButtonElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  // 手機的畫面小，面板一攤開就會蓋住 3D 小提琴，因此預設收成左上角的圖示。
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== "undefined" && window.innerWidth < 640,
+  );
 
   const apply = useCallback(
     (next: PanelOffset) => {
@@ -280,6 +283,35 @@ function PanelIcon() {
   );
 }
 
+/** 平移模式：四向箭頭。 */
+function PanIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+      <path
+        d="M8 1.8v12.4M1.8 8h12.4M8 1.8 6.2 3.8M8 1.8l1.8 2M8 14.2l-1.8-2M8 14.2l1.8-2M1.8 8l2-1.8M1.8 8l2 1.8M14.2 8l-2-1.8M14.2 8l-2 1.8"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** 視角歸位：逆時針的圓形箭頭。 */
+function ResetViewIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+      <path
+        d="M13.2 8a5.2 5.2 0 1 1-1.7-3.85"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+      <path d="M13.4 1.6v3.2h-3.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /** 目錄在 lg 以上固定顯示，以下則收合；收合時必須讓其中的按鈕離開鍵盤順序。 */
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(
@@ -298,8 +330,8 @@ function useIsDesktop() {
 
 function SiteFooter() {
   return (
-    <footer className="pointer-events-auto px-4 text-right sm:px-6">
-      <p className="text-[10.5px] leading-5 tracking-wide text-[#e8d5a3]/75">
+    <footer className="pointer-events-none px-4 text-right sm:px-6">
+      <p className="pointer-events-auto text-[10.5px] leading-5 tracking-wide text-[#e8d5a3]/75">
         © 2026{" "}
         <a
           href="https://github.com/doggy8088"
@@ -340,7 +372,8 @@ function Paper({ children, className }: { children: ReactNode; className?: strin
   return (
     <div
       className={cn(
-        "paper-card paper-scroll max-h-[min(42vh,540px)] overflow-y-auto rounded-2xl p-5 sm:max-h-[min(64vh,620px)] sm:p-6",
+        // 面板本身要接得住事件，但外框留白不能攔住指標，否則整個畫面都會拖不動 3D 模型。
+        "paper-card paper-scroll pointer-events-auto max-h-[min(42vh,540px)] overflow-y-auto rounded-2xl p-5 sm:max-h-[min(64vh,620px)] sm:p-6",
         className,
       )}
     >
@@ -355,7 +388,7 @@ function Kicker({ children }: { children: ReactNode }) {
 
 function CoverPanel({ onStart }: { onStart: () => void }) {
   return (
-    <div className="animate-fade-up max-w-xl space-y-6 text-[#f4ecd9]">
+    <div className="animate-fade-up pointer-events-auto max-w-xl space-y-6 text-[#f4ecd9]">
       <p className="ornament text-[11px] text-[#e8d5a3]">The Violin Atlas</p>
       <h1 className="font-serif text-4xl leading-[1.15] sm:text-6xl">
         小提琴
@@ -384,7 +417,7 @@ function CoverPanel({ onStart }: { onStart: () => void }) {
         </button>
       </div>
       <p className="text-[11px] tracking-wide text-[#e8d5a3]/75">
-        拖曳旋轉 · 滾輪縮放 · 點擊部位 · ← → 翻頁
+        拖曳旋轉 · 滾輪縮放 · 平移模式可移動琴身 · 點擊部位 · ← → 翻頁
       </p>
     </div>
   );
@@ -711,6 +744,9 @@ export function Overlay({
   onBowTechnique,
   autoRotate,
   onToggleRotate,
+  panMode,
+  onTogglePan,
+  onResetView,
   muted,
   onToggleMute,
   help,
@@ -732,6 +768,9 @@ export function Overlay({
   onBowTechnique: (id: string) => void;
   autoRotate: boolean;
   onToggleRotate: () => void;
+  panMode: boolean;
+  onTogglePan: () => void;
+  onResetView: () => void;
   muted: boolean;
   onToggleMute: () => void;
   help: boolean;
@@ -784,6 +823,30 @@ export function Overlay({
             className="glass-dark rounded-full px-3 py-1.5 text-[11px] tracking-wide text-[#e8d5a3]"
           >
             {autoRotate ? "停止旋轉" : "自動旋轉"}
+          </button>
+          <button
+            type="button"
+            onClick={onTogglePan}
+            aria-pressed={panMode}
+            aria-label={panMode ? "結束平移模式，改回拖曳旋轉" : "開啟平移模式，拖曳可移動小提琴"}
+            title="平移模式：拖曳變成移動琴身，方便看到被擋住或看不清楚的地方；雙指仍可縮放"
+            className={cn(
+              "glass-dark flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] tracking-wide transition",
+              panMode ? "text-[#f0e0a8] ring-1 ring-[#c9a84c]/70" : "text-[#e8d5a3]",
+            )}
+          >
+            <PanIcon />
+            <span className="hidden sm:inline">{panMode ? "平移中" : "平移"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={onResetView}
+            aria-label="把 3D 視角帶回本章預設位置"
+            title="視角歸位：回到本章的預設角度與距離"
+            className="glass-dark flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] tracking-wide text-[#e8d5a3] transition hover:text-[#f0e0a8]"
+          >
+            <ResetViewIcon />
+            <span className="hidden sm:inline">歸位</span>
           </button>
           <button
             type="button"
@@ -868,7 +931,7 @@ export function Overlay({
           <main
             id="manual-content"
             tabIndex={-1}
-            className="pointer-events-auto min-w-0 max-w-full"
+            className="pointer-events-none min-w-0 max-w-full"
           >
             <div ref={panelRef} className={cn("relative", drag.collapsed && "hidden")}>
               <div className="mb-2 flex justify-end gap-1.5">
@@ -879,7 +942,7 @@ export function Overlay({
                   aria-label="移動說明面板：拖曳或按方向鍵移動，按一下歸位"
                   title="拖曳可移動面板；方向鍵微調，按住 Shift 加速，Home 或按一下歸位"
                   className={cn(
-                    "glass-dark flex touch-none items-center gap-1.5 rounded-full px-3 py-1 text-[10.5px] tracking-wide text-[#e8d5a3]/80 transition select-none hover:text-[#f0e0a8]",
+                    "glass-dark pointer-events-auto flex touch-none items-center gap-1.5 rounded-full px-3 py-1 text-[10.5px] tracking-wide text-[#e8d5a3]/80 transition select-none hover:text-[#f0e0a8]",
                     drag.dragging ? "cursor-grabbing text-[#f0e0a8]" : "cursor-grab",
                   )}
                 >
@@ -891,7 +954,7 @@ export function Overlay({
                   onClick={drag.collapse}
                   aria-label="收起說明面板"
                   title="收起面板，左上角會出現可以再打開的圖示"
-                  className="glass-dark flex touch-none items-center rounded-full px-2.5 py-1 text-[#e8d5a3]/80 transition hover:text-[#f0e0a8]"
+                  className="glass-dark pointer-events-auto flex touch-none items-center rounded-full px-2.5 py-1 text-[#e8d5a3]/80 transition hover:text-[#f0e0a8]"
                 >
                   <CloseIcon />
                 </button>
@@ -927,7 +990,7 @@ export function Overlay({
                 onClick={drag.restore}
                 aria-label="顯示說明面板"
                 title="把說明面板放回畫面上"
-                className="glass-dark flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] text-[#e8d5a3] transition hover:text-[#f0e0a8]"
+                className="glass-dark pointer-events-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] text-[#e8d5a3] transition hover:text-[#f0e0a8]"
               >
                 <PanelIcon />
                 顯示說明
@@ -1013,11 +1076,14 @@ export function Overlay({
             </h2>
             <ul className="mt-4 space-y-2 text-sm leading-7 text-[#4a3224]">
               <li>拖曳畫面以旋轉小提琴，滾輪或捏合可縮放。</li>
+              <li>
+                看不清楚的時候，按右上角的「平移」把拖曳換成移動琴身，就能把琴移到想看清楚的位置；「歸位」則回到本章預設視角。桌機也可以直接按滑鼠右鍵拖曳，或按 <kbd>P</kbd> 切換平移、<kbd>R</kbd> 歸位。
+              </li>
               <li>說明面板上方的「拖曳移動」把手可以拉著跑到任何位置，也能整個拖出畫面；方向鍵微調（Shift 加速），Home 或按一下把手歸位。把手旁的 ✕ 可收起面板，左上角會留下圖示，點一下就能放回來。</li>
               <li>在「解剖」章節點選部位，相機會靠過去。按 E 可分解。</li>
               <li>「四弦」章節可聽空弦；請先與頁面互動以開啟音訊，右上角可切換「有聲／已靜音」。</li>
               <li>「運弓」章節選擇技法，弓會示範動作。</li>
-              <li>鍵盤：← → 翻頁，Esc 取消選取，? 開關本說明。</li>
+              <li>鍵盤：← → 翻頁，P 平移模式，R 視角歸位，Esc 取消選取，? 開關本說明。</li>
             </ul>
             <button
               type="button"
