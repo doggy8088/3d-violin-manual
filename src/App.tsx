@@ -79,15 +79,13 @@ export default function App() {
   const current = CHAPTERS.find((c) => c.id === chapter) ?? CHAPTERS[0];
 
   // 開場動畫不應攔住操作：按任意鍵或點一下即可略過。
+  // 只在 click 階段結束動畫；若在 pointerdown 就移除，隨後同一次手勢的 click
+  // 會以新的命中測試結果為目標，變成誤觸底下的按鈕。
   useEffect(() => {
     if (!intro) return;
     const dismiss = () => setIntro(false);
     window.addEventListener("keydown", dismiss, { once: true });
-    window.addEventListener("pointerdown", dismiss, { once: true });
-    return () => {
-      window.removeEventListener("keydown", dismiss);
-      window.removeEventListener("pointerdown", dismiss);
-    };
+    return () => window.removeEventListener("keydown", dismiss);
   }, [intro]);
 
   const handleSelectPart = useCallback((id: string) => {
@@ -209,6 +207,7 @@ export default function App() {
       {intro && (
         <div
           aria-hidden="true"
+          onClick={() => setIntro(false)}
           className="absolute inset-0 z-40 flex items-center justify-center bg-[#0a0608]"
         >
           <div className="flex flex-col items-center gap-6">
