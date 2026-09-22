@@ -58,29 +58,38 @@ function SpeakerIcon({ muted }: { muted: boolean }) {
 /** 方向鍵微調的位移；按住 Shift 走大步。 */
 const DRAG_KEY_STEP = 24;
 const DRAG_KEY_STEP_LARGE = 96;
-/** 面板與可移動區域邊緣至少保留的距離，避免被拖到看不見。 */
-const PANEL_EDGE_GAP = 8;
 /** 指標位移未達這個距離就當成「點一下」，而不是拖曳。 */
 const DRAG_SLOP = 4;
+/** 把手至少要有這麼多留在畫面內，才算還抓得到。 */
+const HANDLE_MIN_VISIBLE_WIDTH = 24;
+const HANDLE_MIN_VISIBLE_HEIGHT = 12;
 
 type PanelOffset = { x: number; y: number };
-type PanelBounds = { minX: number; maxX: number; minY: number; maxY: number };
 
-function clampNumber(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
+/**
+ * 元素是否還有足夠面積留在畫面內。被 display:none 收起來時量不到尺寸，一律當成
+ * 沒問題，收合中的面板才不會一直被判定成「抓不到」。
+ */
+function isReachable(element: HTMLElement, minWidth: number, minHeight: number) {
+  const rect = element.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return true;
+  const width = Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0);
+  const height = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+  return width >= Math.min(minWidth, rect.width) && height >= Math.min(minHeight, rect.height);
 }
 
 /**
- * 讓說明面板可以搬家：拖曳、方向鍵微調、Home 或點一下歸位。
+ * 讓說明面板可以搬家：拖曳、方向鍵微調、Home 或點一下歸位，也能整個收成圖示。
  *
  * 位移只以 transform 呈現，不動到版面，因此每一章的面板排版都維持原樣；而且直接
- * 寫入 DOM 樣式而非透過 state，拖曳過程不會連帶重新渲染整個 Overlay。
- * 可移動的範圍以面板的容器為界，所以面板蓋不到頁首與頁尾，也不會被拖出畫面。
+ * 寫入 DOM 樣式而非透過 state，拖曳過程不會連帶重新渲染整個 Overlay。位移不設限，
+ * 面板可以一路拖出畫面；只有連把手都拖到抓不到時，面板才會自動收成左上角的圖示，
+ * 如此就不會出現「叫不回來」的面板。
  */
 function usePanelDrag(
   panelRef: RefObject<HTMLDivElement | null>,
-  areaRef: RefObject<HTMLElement | null>,
-  reclampKey: string,
+  handleRef: RefObject<HTMLButtonElement | null>,
+  layoutKey: string,
 ) {
   const offset = useRef<PanelOffset>({ x: 0, y: 0 });
   const drag = useRef<{
@@ -89,30 +98,11 @@ function usePanelDrag(
     startY: number;
     baseX: number;
     baseY: number;
-    bounds: PanelBounds;
   } | null>(null);
   const moved = useRef(false);
+  const restoreRef = useRef<HTMLButtonElement>(null);
   const [dragging, setDragging] = useState(false);
-
-  /** 依面版目前的版面位置，算出位移的合法區間；rect 已含舊位移，要先扣掉。 */
-  const boundsFor = useCallback(
-    (current: PanelOffset): PanelBounds | null => {
-      const area = areaRef.current?.getBoundingClientRect();
-      const rect = panelRef.current?.getBoundingClientRect();
-      if (!area || !rect) return null;
-      const layoutLeft = rect.left - current.x;
-      const layoutTop = rect.top - current.y;
-      const minLeft = area.left + PANEL_EDGE_GAP;
-      const minTop = area.top + PANEL_EDGE_GAP;
-      return {
-        minX: minLeft - layoutLeft,
-        maxX: Math.max(minLeft, area.right - PANEL_EDGE_GAP - rect.width) - layoutLeft,
-        minY: minTop - layoutTop,
-        maxY: Math.max(minTop, area.bottom - PANEL_EDGE_GAP - rect.height) - layoutTop,
-      };
-    },
-    [areaRef, panelRef],
-  );
+  const [collapsed, setCollapsed] = useState(false);
 
   const apply = useCallback(
     (next: PanelOffset) => {
@@ -125,51 +115,89 @@ function usePanelDrag(
 
   const reset = useCallback(() => apply({ x: 0, y: 0 }), [apply]);
 
+  /** 把手還抓得到嗎？抓不到就不該讓面板留在畫面外。 */
+  const handleLost = useCallback(() => {
+    const handle = handleRef.current;
+    return (
+      !!handle && !isReachable(handle, HANDLE_MIN_VISIBLE_WIDTH, HANDLE_MIN_VISIBLE_HEIGHT)
+    );
+  }, [handleRef]);
+
+  /** 拖曳或微調結束後才檢查；拖到一半就收起來會讓指標捕獲中途失效。 */
+  const settle = useCallback(() => {
+    if (handleLost()) setCollapsed(true);
+  }, [handleLost]);
+
   const nudge = useCallback(
     (dx: number, dy: number) => {
-      const bounds = boundsFor(offset.current);
-      if (!bounds) return;
-      apply({
-        x: clampNumber(offset.current.x + dx, bounds.minX, bounds.maxX),
-        y: clampNumber(offset.current.y + dy, bounds.minY, bounds.maxY),
-      });
+      apply({ x: offset.current.x + dx, y: offset.current.y + dy });
+      settle();
     },
-    [apply, boundsFor],
+    [apply, settle],
   );
 
-  // 視窗尺寸或章節改變後版面會變，原本的位移可能把面板擠出可視範圍，要重新夾一次。
+  // 視窗縮小或換章節後版面會變，面板可能因此被擠出畫面。這不是使用者主動搬動，
+  // 所以先接回原位；連原位都放不下（視窗太小）才收成圖示。
   useEffect(() => {
-    const reclamp = () => {
-      if (offset.current.x === 0 && offset.current.y === 0) return;
-      const bounds = boundsFor(offset.current);
-      if (!bounds) return;
-      apply({
-        x: clampNumber(offset.current.x, bounds.minX, bounds.maxX),
-        y: clampNumber(offset.current.y, bounds.minY, bounds.maxY),
-      });
+    const keepReachable = () => {
+      const handle = handleRef.current;
+      if (!handle || isReachable(handle, HANDLE_MIN_VISIBLE_WIDTH, HANDLE_MIN_VISIBLE_HEIGHT)) {
+        return;
+      }
+      apply({ x: 0, y: 0 });
+      if (!isReachable(handle, HANDLE_MIN_VISIBLE_WIDTH, HANDLE_MIN_VISIBLE_HEIGHT)) {
+        setCollapsed(true);
+      }
     };
-    reclamp();
-    window.addEventListener("resize", reclamp);
-    return () => window.removeEventListener("resize", reclamp);
-  }, [apply, boundsFor, reclampKey]);
+    keepReachable();
+    window.addEventListener("resize", keepReachable);
+    return () => window.removeEventListener("resize", keepReachable);
+  }, [apply, handleRef, layoutKey]);
 
-  const endDrag = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
-    const state = drag.current;
-    if (!state || state.id !== event.pointerId) return;
-    drag.current = null;
-    setDragging(false);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+  // 從圖示還原時，面板可能早在收起來期間被視窗變化推到抓不到的地方，要順手接回原位。
+  useEffect(() => {
+    if (collapsed) return;
+    const handle = handleRef.current;
+    if (handle && !isReachable(handle, HANDLE_MIN_VISIBLE_WIDTH, HANDLE_MIN_VISIBLE_HEIGHT)) {
+      apply({ x: 0, y: 0 });
     }
-  }, []);
+  }, [collapsed, apply, handleRef]);
+
+  // 收起後把焦點交給圖示、還原後交回把手，鍵盤使用者才不會突然迷路。
+  // 只在「真的切換過」時動手，否則掛載（含 StrictMode 的二次執行）就會把焦點搶到把手上，
+  // 讓載入後的 ← → 變成移動面板而不是翻章節。
+  const wasCollapsed = useRef(collapsed);
+  useEffect(() => {
+    if (wasCollapsed.current === collapsed) return;
+    wasCollapsed.current = collapsed;
+    const target = collapsed ? restoreRef.current : handleRef.current;
+    target?.focus({ preventScroll: true });
+  }, [collapsed, handleRef]);
+
+  const endDrag = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const state = drag.current;
+      if (!state || state.id !== event.pointerId) return;
+      drag.current = null;
+      setDragging(false);
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      settle();
+    },
+    [settle],
+  );
 
   return {
     dragging,
+    collapsed,
+    handleRef,
+    restoreRef,
+    collapse: () => setCollapsed(true),
+    restore: () => setCollapsed(false),
     handleProps: {
       onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
         if (event.button !== 0 || drag.current) return;
-        const bounds = boundsFor(offset.current);
-        if (!bounds) return;
         // 取得指標捕獲，滑出把手後拖曳才會繼續，放手也一定收得到事件。
         event.currentTarget.setPointerCapture(event.pointerId);
         moved.current = false;
@@ -179,7 +207,6 @@ function usePanelDrag(
           startY: event.clientY,
           baseX: offset.current.x,
           baseY: offset.current.y,
-          bounds,
         };
         setDragging(true);
       },
@@ -190,10 +217,7 @@ function usePanelDrag(
         const dy = event.clientY - state.startY;
         if (!moved.current && Math.hypot(dx, dy) < DRAG_SLOP) return;
         moved.current = true;
-        apply({
-          x: clampNumber(state.baseX + dx, state.bounds.minX, state.bounds.maxX),
-          y: clampNumber(state.baseY + dy, state.bounds.minY, state.bounds.maxY),
-        });
+        apply({ x: state.baseX + dx, y: state.baseY + dy });
       },
       onPointerUp: endDrag,
       onPointerCancel: endDrag,
@@ -228,6 +252,30 @@ function GripIcon() {
           <circle cx="8" cy={cy} r="1.05" fill="currentColor" />
         </g>
       ))}
+    </svg>
+  );
+}
+
+/** 收起面板的叉叉圖示。 */
+function CloseIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden className="shrink-0">
+      <path
+        d="M3 3l6 6M9 3l-6 6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** 還原用的面板圖示：一張有幾行字的小卡。 */
+function PanelIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+      <rect x="1.6" y="2.8" width="12.8" height="10.4" rx="2.2" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M4.8 6.4h6.4M4.8 9.4h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   );
 }
@@ -696,8 +744,8 @@ export function Overlay({
   const isDesktop = useIsDesktop();
   const asideHidden = !menuOpen && !isDesktop;
   const panelRef = useRef<HTMLDivElement>(null);
-  const areaRef = useRef<HTMLDivElement>(null);
-  const drag = usePanelDrag(panelRef, areaRef, chapter);
+  const handleRef = useRef<HTMLButtonElement>(null);
+  const drag = usePanelDrag(panelRef, handleRef, chapter);
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
@@ -816,19 +864,17 @@ export function Overlay({
           ))}
         </aside>
 
-        <div
-          ref={areaRef}
-          className="flex min-w-0 flex-1 items-stretch justify-between gap-4 px-4 pb-24 pt-2 sm:px-6"
-        >
+        <div className="flex min-w-0 flex-1 items-stretch justify-between gap-4 px-4 pb-24 pt-2 sm:px-6">
           <main
             id="manual-content"
             tabIndex={-1}
             className="pointer-events-auto min-w-0 max-w-full"
           >
-            <div ref={panelRef} className="relative">
-              <div className="mb-2 flex justify-end">
+            <div ref={panelRef} className={cn("relative", drag.collapsed && "hidden")}>
+              <div className="mb-2 flex justify-end gap-1.5">
                 <button
                   type="button"
+                  ref={drag.handleRef}
                   {...drag.handleProps}
                   aria-label="移動說明面板：拖曳或按方向鍵移動，按一下歸位"
                   title="拖曳可移動面板；方向鍵微調，按住 Shift 加速，Home 或按一下歸位"
@@ -839,6 +885,15 @@ export function Overlay({
                 >
                   <GripIcon />
                   拖曳移動
+                </button>
+                <button
+                  type="button"
+                  onClick={drag.collapse}
+                  aria-label="收起說明面板"
+                  title="收起面板，左上角會出現可以再打開的圖示"
+                  className="glass-dark flex touch-none items-center rounded-full px-2.5 py-1 text-[#e8d5a3]/80 transition hover:text-[#f0e0a8]"
+                >
+                  <CloseIcon />
                 </button>
               </div>
               {chapter === "cover" && <CoverPanel onStart={() => onChapter("history")} />}
@@ -865,6 +920,19 @@ export function Overlay({
               {chapter === "repertoire" && <RepertoirePanel />}
               {chapter === "quiz" && <QuizPanel />}
             </div>
+            {drag.collapsed && (
+              <button
+                type="button"
+                ref={drag.restoreRef}
+                onClick={drag.restore}
+                aria-label="顯示說明面板"
+                title="把說明面板放回畫面上"
+                className="glass-dark flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] text-[#e8d5a3] transition hover:text-[#f0e0a8]"
+              >
+                <PanelIcon />
+                顯示說明
+              </button>
+            )}
           </main>
         </div>
       </div>
@@ -945,7 +1013,7 @@ export function Overlay({
             </h2>
             <ul className="mt-4 space-y-2 text-sm leading-7 text-[#4a3224]">
               <li>拖曳畫面以旋轉小提琴，滾輪或捏合可縮放。</li>
-              <li>說明面板右上角的「拖曳移動」把手可以拉著跑，躲開想看的部分；方向鍵微調（Shift 加速），Home 或按一下把手歸位。</li>
+              <li>說明面板上方的「拖曳移動」把手可以拉著跑到任何位置，也能整個拖出畫面；方向鍵微調（Shift 加速），Home 或按一下把手歸位。把手旁的 ✕ 可收起面板，左上角會留下圖示，點一下就能放回來。</li>
               <li>在「解剖」章節點選部位，相機會靠過去。按 E 可分解。</li>
               <li>「四弦」章節可聽空弦；請先與頁面互動以開啟音訊，右上角可切換「有聲／已靜音」。</li>
               <li>「運弓」章節選擇技法，弓會示範動作。</li>
